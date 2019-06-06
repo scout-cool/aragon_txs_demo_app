@@ -49,6 +49,7 @@ app.get("/requestToken", async (req, res) => {
     await checkAuth(req);
     res.redirect("/?m=" + encodeURIComponent("Token retrieved successfully!"));
   } catch (e) {
+    console.error(e)
     res.redirect("/?m=" + encodeURIComponent("Token retrieval failed: " + e));
   }
 });
@@ -116,10 +117,12 @@ app.get("/getTxs", async (req, res) => {
                   <textarea cols="150" rows="8">${JSON.stringify(header)}</textarea>`);
       })
       .catch(error => {
+        console.error(error)
         res.send(error);
       });
-  } catch (e) {
-    res.send(e);
+  } catch (error) {
+    console.error(error)
+    res.send(error);
   }
 });
 
@@ -161,11 +164,11 @@ const getAccessToken = async () => {
   const clientSecret = process.env.CLIENT_SECRET;
   // **************************
   if(!clientId){
-    //// TODO:  render error `null CLIENT_ID`
+    console.error("null CLIENT_ID")
     return
   }
   if(!clientSecret){
-    //// TODO:  render error `null CLIENT_SECRET`
+    console.error("null CLIENT_SECRET")
     return
   }
 
