@@ -18,17 +18,63 @@ app.use(
   })
 );
 
-app.get("/", (req, res) =>
-  res.sendFile("views/home.html", { root: __dirname })
-);
+app.get("/", (req, res) => {
+  let sessData = req.session;
+
+  res.send(`<h1>Welcome to Scout example Client</h1>
+  <p>${req.query.m ? "Message: " + decodeURIComponent(req.query.m) : ""}</p>
+  <p>Current token:</p>
+  <textarea cols="150" rows="8">${
+    sessData.accessToken
+      ? sessData.tokenType + " " + sessData.accessToken
+      : "No token available"
+  }</textarea>
+  <p>Token life: ${sessData.expiresIn ? sessData.expiresIn / 1000 / 60 + ' minutes' : ''}</p>
+  <p>It expires at: ${sessData.expiresAt ? new Date(sessData.expiresAt) : ''}</p>
+  <hr />
+  <p>Follow these links to test different endpoints:</p>
+  <ul>
+      <li>Request Token: <a href="/requestToken">/requestToken</a></li>
+      <li>Remove Token: <a href="/removeToken">/removeToken</a></li>
+      <li>Get Transactions: <a href="/getTxs">/getTxs</a></li>
+      <li>Get Transactions (Auto-request Token if not present): <a href="/getTxs?checkAuth=yes">/getTxs?checkAuth=yes</a></li>
+    </ul>`);
+});
+
+/**
+ *
+ */
+app.get("/requestToken", async (req, res) => {
+  try {
+    await checkAuth(req);
+    res.redirect("/?m=" + encodeURIComponent("Token retrieved successfully!"));
+  } catch (e) {
+    res.redirect("/?m=" + encodeURIComponent("Token retrieval failed: " + e));
+  }
+});
+
+/**
+ *
+ */
+app.get("/removeToken", async (req, res) => {
+  let sessData = req.session;
+  sessData.tokenType = null;
+  sessData.accessToken = null;
+  sessData.expiresIn = null;
+  sessData.expiresAt = null;
+
+  res.redirect("/?m=" + encodeURIComponent("Token has been removed"));
+});
 
 /**
  * Call transactions endpoint
  */
-app.get("/getTxsWithAuth", async (req, res) => {
+app.get("/getTxs", async (req, res) => {
   try {
     // Check auth
-    await checkAuth(req);
+    if (req.query.checkAuth === "yes") {
+      await checkAuth(req);
+    }
     let sessData = req.session;
 
     const bodyData = {
@@ -49,13 +95,15 @@ app.get("/getTxsWithAuth", async (req, res) => {
       }
     };
 
+    const header = sessData.accessToken ? {
+      authorization: `${sessData.tokenType} ${sessData.accessToken}`
+    } : {}
+
     apiHelper
       .callAPI(
         "https://scout-stage-app.herokuapp.com/supermax/api/v2/txsauth/aragon/mainnet",
         "POST",
-        {
-          authorization: `${sessData.tokenType} ${sessData.accessToken}`
-        },
+        header,
         bodyData
       )
       .then(body => {
@@ -65,11 +113,7 @@ app.get("/getTxsWithAuth", async (req, res) => {
                     body
                   )}</textarea>
                   <p>The authorization header sent is:</p>
-                  <textarea cols="150" rows="8">authorization: ${sessData.tokenType} ${
-          sessData.accessToken
-        }</textarea>
-        <p>Token life: ${sessData.expiresIn / 1000 / 60} minutes</p>
-        <p>It expires at: ${new Date(sessData.expiresAt)}</p>`);
+                  <textarea cols="150" rows="8">${JSON.stringify(header)}</textarea>`);
       })
       .catch(error => {
         res.send(error);
@@ -108,9 +152,9 @@ app.get("/testAuth", async (req, res) => {
                   <textarea cols="50" rows="2"> ${JSON.stringify(body)}
                   </textarea>
                   <p>The authorization header sent is:</p>
-                  <textarea cols="150" rows="8">authorization: ${sessData.tokenType} ${
-          sessData.accessToken
-        }</textarea>
+                  <textarea cols="150" rows="8">authorization: ${
+                    sessData.tokenType
+                  } ${sessData.accessToken}</textarea>
         <p>Token life: ${sessData.expiresIn / 1000 / 60} minutes</p>
         <p>It expires at: ${new Date(sessData.expiresAt)}</p>`);
       })
