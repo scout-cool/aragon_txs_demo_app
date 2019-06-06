@@ -34,10 +34,10 @@ app.get("/", (req, res) => {
   <hr />
   <p>Follow these links to test different endpoints:</p>
   <ul>
-      <li>Request Token: <a href="/requestToken">/requestToken</a></li>
-      <li>Remove Token: <a href="/removeToken">/removeToken</a></li>
-      <li>Get Transactions: <a href="/getTxs">/getTxs</a></li>
-      <li>Get Transactions (Auto-request Token if not present): <a href="/getTxs?checkAuth=yes">/getTxs?checkAuth=yes</a></li>
+      <li>Request new access token: <a href="/requestToken">Request</a></li>
+      <li>Clear Token: <a href="/removeToken">Clear</a></li>
+      <li>Retrieve Transactions with current access token: <a href="/getTxs">Retrieve</a></li>
+      <li>Retrieve Transactions (Auto-request Token if not present): <a href="/getTxs?checkAuth=yes">Retrieve</a></li>
     </ul>`);
 });
 
@@ -101,62 +101,19 @@ app.get("/getTxs", async (req, res) => {
 
     apiHelper
       .callAPI(
-        "https://scout-stage-app.herokuapp.com/supermax/api/v2/txsauth/aragon/mainnet",
+        "https://scout-stage-app.herokuapp.com/supermax/api/v2/ext/transactions/aragon/mainnet",
         "POST",
         header,
         bodyData
       )
       .then(body => {
-        res.send(`<h2>TXs endpoint</h2> 
+        res.send(`<h2>TXs endpoint</h2>
                   <p>Calling Scout's TXs endpoint returned: </p>
                   <textarea cols="150" rows="8">${JSON.stringify(
                     body
                   )}</textarea>
                   <p>The authorization header sent is:</p>
                   <textarea cols="150" rows="8">${JSON.stringify(header)}</textarea>`);
-      })
-      .catch(error => {
-        res.send(error);
-      });
-  } catch (e) {
-    res.send(e);
-  }
-});
-
-/**
- * Check if there is a non expired token, get a new one if expired and finally call endpoint
- * sending token in authorization header
- */
-app.get("/testAuth", async (req, res) => {
-  try {
-    // Check auth
-    await checkAuth(req);
-
-    let sessData = req.session;
-
-    // Use token to call Scout's endpoint
-    // Use access token to authenticate on endpoint
-    apiHelper
-      .callAPI(
-        "https://scout-stage-app.herokuapp.com/supermax/api/v2/dummyauth/aragon",
-        "GET",
-        {
-          authorization: `${sessData.tokenType} ${sessData.accessToken}`
-        },
-        {}
-      )
-      .then(body => {
-        res.send(`<h2>Auth Test</h2> 
-                  <p>AccessToken retrieved successfully!</p>
-                  <p>Calling Scout's endpoint returned:</p>
-                  <textarea cols="50" rows="2"> ${JSON.stringify(body)}
-                  </textarea>
-                  <p>The authorization header sent is:</p>
-                  <textarea cols="150" rows="8">authorization: ${
-                    sessData.tokenType
-                  } ${sessData.accessToken}</textarea>
-        <p>Token life: ${sessData.expiresIn / 1000 / 60} minutes</p>
-        <p>It expires at: ${new Date(sessData.expiresAt)}</p>`);
       })
       .catch(error => {
         res.send(error);
@@ -200,9 +157,17 @@ const checkAuth = async req => {
 const getAccessToken = async () => {
   // Auth0 Credentials - Store in a SAFE place. DO NOT push to repo
   // **************************
-  const clientId = process.env.AUTH0_CLIENT_ID;
-  const clientSecret = process.env.AUTH0_CLIENT_SECRET;
+  const clientId = process.env.CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET;
   // **************************
+  if(!clientId){
+    //// TODO:  render error `null CLIENT_ID`
+    return
+  }
+  if(!clientSecret){
+    //// TODO:  render error `null CLIENT_SECRET`
+    return
+  }
 
   const headers = {
     "cache-control": "no-cache",
@@ -219,7 +184,7 @@ const getAccessToken = async () => {
 
   // Get access token
   return apiHelper.callAPI(
-    "https://supermax-dev.auth0.com/oauth/token",
+    "https://scout-stage-app.herokuapp.com/supermax/api/v2/oauth/token",
     "POST",
     headers,
     body
